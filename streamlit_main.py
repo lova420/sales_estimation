@@ -1,10 +1,19 @@
+#!/usr/bin/env python3
+"""
+Main Streamlit app for Databricks Apps deployment.
+This version runs only Streamlit with embedded API functionality.
+"""
+
 import streamlit as st
 import pandas as pd
-import requests
-import json
-# from src.model_inference import predict_price
-import joblib
 import os
+import sys
+import joblib
+import glob
+
+# Add src to path for imports
+sys.path.append('src')
+from model_inference import predict_price
 
 # Page configuration
 st.set_page_config(
@@ -12,11 +21,6 @@ st.set_page_config(
     page_icon="🚗",
     layout="wide"
 )
-
-# Global variables - Updated for Databricks deployment
-import os
-# For Databricks Apps, both services run in the same container
-API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 def load_preprocessor():
     """Load the preprocessor to get feature names and categories"""
@@ -26,7 +30,6 @@ def load_preprocessor():
         if not os.path.exists(preprocessor_path):
             # Try alternative path for Databricks
             preprocessor_path = '/Workspace/Repos/*/pkl_files/preprocessor_v1.pkl'
-            import glob
             matching_files = glob.glob(preprocessor_path)
             if matching_files:
                 preprocessor_path = matching_files[0]
@@ -47,7 +50,6 @@ def get_unique_values_from_data():
         if not os.path.exists(data_path):
             # Try alternative path for Databricks
             data_path = '/Workspace/Repos/*/data.csv'
-            import glob
             matching_files = glob.glob(data_path)
             if matching_files:
                 data_path = matching_files[0]
@@ -70,44 +72,57 @@ def get_unique_values_from_data():
         st.error(f"Error loading data for dropdowns: {e}")
         return {}
 
-def call_vin_api(vin):
-    """Call the VIN-based API to get similar vehicles"""
+def get_vin_data(vin: str):
+    """Get VIN data directly without API call"""
     try:
-        response = requests.get(f"{API_BASE_URL}/get-data/{vin}")
-        if response.status_code == 200:
-            return response.json()
-        else:
-            st.error(f"API Error: {response.status_code} - {response.text}")
-            return None
+        # Support both local and Databricks file paths
+        data_path = os.path.join(os.getcwd(), 'data.csv')
+        if not os.path.exists(data_path):
+            data_path = '/Workspace/Repos/*/data.csv'
+            matching_files = glob.glob(data_path)
+            if matching_files:
+                data_path = matching_files[0]
+            else:
+                data_path = 'data.csv'
+        
+        data = pd.read_csv(data_path)
+        
+        vin_search = vin[:8]
+        str_cols = data.select_dtypes(include=['object', 'string']).columns
+        data[str_cols] = data[str_cols].apply(lambda x: x.str.strip())
+        
+        data_cleaned = data[data['VIN'].str.strip().str[:8] == vin_search].copy()
+        
+        if data_cleaned.empty:
+            return pd.DataFrame()
+        
+        cols = [
+            "VIN", "Lot Year", "Lot Make", "Lot Model", "Sale Price",
+            "Lot Run Condition", "Sale Title Type", "Damage Type Description",
+            "Odometer Reading", "Lot Fuel Type"
+        ]
+        return data_cleaned[cols].reset_index(drop=True)
     except Exception as e:
-        st.error(f"Error calling VIN API: {e}")
-        return None
+        st.error(f"Error loading VIN data: {e}")
+        return pd.DataFrame()
 
-def call_prediction_api(vehicle_data):
-    """Call the prediction API with vehicle data"""
-    try:
-        response = requests.post(f"{API_BASE_URL}/estimate_price/", json={"df": vehicle_data})
-        if response.status_code == 200:
-            return response.json()
-        else:
-            st.error(f"API Error: {response.status_code} - {response.text}")
-            return None
-    except Exception as e:
-        st.error(f"Error calling prediction API: {e}")
+def estimate_price_by_vin(df_similar: pd.DataFrame):
+    """Estimate price from similar vehicles"""
+    if df_similar.empty:
         return None
-
-def call_prediction_api_from_features(features):
-    """Call the prediction API with vehicle data"""
-    try:
-        response = requests.post(f"{API_BASE_URL}/predict_price/", json={"features": features})
-        if response.status_code == 200:
-            return response.json()
-        else:
-            st.error(f"API Error: {response.status_code} - {response.text}")
-            return None
-    except Exception as e:
-        st.error(f"Error calling prediction API: {e}")
-        return None
+    
+    Q1 = df_similar['Sale Price'].quantile(0.25)
+    Q3 = df_similar['Sale Price'].quantile(0.75)
+    IQR = Q3 - Q1
+    lower = Q1 - 1.5 * IQR
+    upper = Q3 + 1.5 * IQR
+    
+    df_cleaned = df_similar[(df_similar['Sale Price'] >= lower) & (df_similar['Sale Price'] <= upper)]
+    
+    if df_cleaned.empty:
+        return float(df_similar['Sale Price'].median())
+    
+    return float(df_cleaned['Sale Price'].median())
 
 def main():
     st.title("🚗 Vehicle Price Estimator")
@@ -142,16 +157,18 @@ def vin_based_prediction():
     if st.button("Search Similar Vehicles", type="primary"):
         if vin:
             with st.spinner("Searching for similar vehicles..."):
-                # Call the VIN API
-                similar_vehicles = call_vin_api(vin)
+                # Get VIN data directly
+                similar_df = get_vin_data(vin)
                 
-                if similar_vehicles:
+                if not similar_df.empty:
+                    similar_vehicles = similar_df.to_dict(orient="records")
                     st.session_state.similar_vehicles = similar_vehicles
                     st.session_state.vin_searched = vin
                     st.success(f"Found {len(similar_vehicles)} similar vehicles!")
                 else:
                     st.session_state.similar_vehicles = None
                     st.session_state.vin_searched = None
+                    st.warning("No similar vehicles found for this VIN.")
         else:
             st.warning("Please enter a VIN number.")
     
@@ -164,21 +181,21 @@ def vin_based_prediction():
         # Prediction button
         if st.button("Predict Price", type="secondary"):
             with st.spinner("Calculating price prediction..."):
-                # Call the prediction API
-                prediction_result = call_prediction_api(st.session_state.similar_vehicles)
+                # Calculate prediction directly
+                estimated_price = estimate_price_by_vin(df_similar)
                 
-                if prediction_result:
+                if estimated_price:
                     st.subheader("Price Prediction Results:")
                     
                     col1, col2 = st.columns(2)
                     with col1:
                         st.metric(
                             "Estimated Price", 
-                            f"${prediction_result['estimated_price']:,.2f}",
-                            delta=f"Based on {prediction_result['matches_found']} similar vehicles"
+                            f"${estimated_price:,.2f}",
+                            delta=f"Based on {len(df_similar)} similar vehicles"
                         )
                     with col2:
-                        st.metric("Matches Used", prediction_result['matches_found'])
+                        st.metric("Matches Used", len(df_similar))
                     
                     # Show price distribution
                     if 'Sale Price' in df_similar.columns:
@@ -193,8 +210,8 @@ def manual_input_prediction():
     preprocessor = load_preprocessor()
     unique_values = get_unique_values_from_data()
     
-    if not preprocessor or not unique_values:
-        st.error("Unable to load model components. Please check if the files are available.")
+    if not unique_values:
+        st.error("Unable to load data for dropdowns. Please check if the files are available.")
         return
     
     # Create form for manual input
@@ -233,8 +250,8 @@ def manual_input_prediction():
             }
             
             with st.spinner("Making prediction..."):
-                # Call the ML model
-                prediction_result = call_prediction_api_from_features(input_data)
+                # Call the ML model directly
+                prediction_result = predict_price(input_data)
                 
                 if 'error' in prediction_result:
                     st.error(f"Prediction Error: {prediction_result['error']}")
@@ -251,12 +268,6 @@ def manual_input_prediction():
                             f"${prediction_result['predicted_sale_price']:,.2f}"
                         )
                     with col2:
-                        confidence_color = {
-                            "High": "green",
-                            "Medium": "orange", 
-                            "Low": "red"
-                        }.get(prediction_result['confidence_level'], "gray")
-                        
                         st.metric(
                             "Confidence Level", 
                             prediction_result['confidence_level'],
@@ -274,4 +285,4 @@ def manual_input_prediction():
                     st.dataframe(input_df, use_container_width=True)
 
 if __name__ == "__main__":
-    main() 
+    main()
