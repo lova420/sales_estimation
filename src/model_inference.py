@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import os
+import glob
 # --- Global objects loaded once when the script starts ---
 MODEL = None
 PREPROCESSOR = None
@@ -12,9 +13,27 @@ def load_model_simple():
     
     try:
         import joblib
-        # Use relative paths for portability
-        model_path = os.path.join('pkl_files', 'lgbm_model_v1.pkl')
-        preprocessor_path = os.path.join('pkl_files', 'preprocessor_v1.pkl')
+        
+        # Support both local and Databricks file paths
+        model_path = os.path.join(os.getcwd(), 'pkl_files', 'lgbm_model_v1.pkl')
+        preprocessor_path = os.path.join(os.getcwd(), 'pkl_files', 'preprocessor_v1.pkl')
+        
+        # Check if files exist locally, otherwise try Databricks paths
+        if not os.path.exists(model_path):
+            model_pattern = '/Workspace/Repos/*/pkl_files/lgbm_model_v1.pkl'
+            matching_files = glob.glob(model_pattern)
+            if matching_files:
+                model_path = matching_files[0]
+            else:
+                model_path = os.path.join('pkl_files', 'lgbm_model_v1.pkl')
+        
+        if not os.path.exists(preprocessor_path):
+            preprocessor_pattern = '/Workspace/Repos/*/pkl_files/preprocessor_v1.pkl'
+            matching_files = glob.glob(preprocessor_pattern)
+            if matching_files:
+                preprocessor_path = matching_files[0]
+            else:
+                preprocessor_path = os.path.join('pkl_files', 'preprocessor_v1.pkl')
         
         MODEL = joblib.load(model_path)
         PREPROCESSOR = joblib.load(preprocessor_path)
@@ -31,8 +50,18 @@ def simple_price_prediction(input_data: dict) -> dict:
     Used as fallback when ML model is not available.
     """
     try:
-        # Load data for simple prediction
-        data = pd.read_csv('data.csv')
+        # Load data for simple prediction - support Databricks paths
+        data_path = os.path.join(os.getcwd(), 'data.csv')
+        if not os.path.exists(data_path):
+            # Try alternative path for Databricks
+            data_pattern = '/Workspace/Repos/*/data.csv'
+            matching_files = glob.glob(data_pattern)
+            if matching_files:
+                data_path = matching_files[0]
+            else:
+                data_path = 'data.csv'
+        
+        data = pd.read_csv(data_path)
         
         # Filter data based on input criteria
         filtered_data = data.copy()

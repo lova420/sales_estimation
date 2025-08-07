@@ -13,13 +13,26 @@ st.set_page_config(
     layout="wide"
 )
 
-# Global variables
-API_BASE_URL = "http://localhost:8000"
+# Global variables - Updated for Databricks deployment
+import os
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 def load_preprocessor():
     """Load the preprocessor to get feature names and categories"""
     try:
-        preprocessor = joblib.load('pkl_files/preprocessor_v1.pkl')
+        # Support both local and Databricks file paths
+        preprocessor_path = os.path.join(os.getcwd(), 'pkl_files', 'preprocessor_v1.pkl')
+        if not os.path.exists(preprocessor_path):
+            # Try alternative path for Databricks
+            preprocessor_path = '/Workspace/Repos/*/pkl_files/preprocessor_v1.pkl'
+            import glob
+            matching_files = glob.glob(preprocessor_path)
+            if matching_files:
+                preprocessor_path = matching_files[0]
+            else:
+                preprocessor_path = 'pkl_files/preprocessor_v1.pkl'
+        
+        preprocessor = joblib.load(preprocessor_path)
         return preprocessor
     except Exception as e:
         st.error(f"Error loading preprocessor: {e}")
@@ -28,7 +41,19 @@ def load_preprocessor():
 def get_unique_values_from_data():
     """Get unique values for categorical features from the data.csv file"""
     try:
-        data = pd.read_csv('data.csv')
+        # Support both local and Databricks file paths
+        data_path = os.path.join(os.getcwd(), 'data.csv')
+        if not os.path.exists(data_path):
+            # Try alternative path for Databricks
+            data_path = '/Workspace/Repos/*/data.csv'
+            import glob
+            matching_files = glob.glob(data_path)
+            if matching_files:
+                data_path = matching_files[0]
+            else:
+                data_path = 'data.csv'
+        
+        data = pd.read_csv(data_path)
         unique_values = {}
         
         # Get unique values for categorical columns

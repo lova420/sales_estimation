@@ -3,6 +3,8 @@ from pydantic import BaseModel
 import pandas as pd
 import numpy as np
 import uvicorn
+import os
+import glob
 from model_inference import predict_price
 
 app = FastAPI(title="VIN Price Estimator")
@@ -17,7 +19,18 @@ def get_vin_data(vin: str):
     vin_search = vin[:8]
 
     try:
-        data = pd.read_csv('data.csv')
+        # Support both local and Databricks file paths
+        data_path = os.path.join(os.getcwd(), 'data.csv')
+        if not os.path.exists(data_path):
+            # Try alternative path for Databricks
+            data_path = '/Workspace/Repos/*/data.csv'
+            matching_files = glob.glob(data_path)
+            if matching_files:
+                data_path = matching_files[0]
+            else:
+                data_path = 'data.csv'
+        
+        data = pd.read_csv(data_path)
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="data.csv not found")
 
@@ -75,4 +88,7 @@ def predict_price_from_features(request: DataRequest):
     return result
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Get port from environment variable for Databricks Apps
+    port = int(os.getenv("PORT", 8000))
+    host = os.getenv("HOST", "0.0.0.0")
+    uvicorn.run(app, host=host, port=port)
