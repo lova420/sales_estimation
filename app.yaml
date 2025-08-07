@@ -1,1 +1,1 @@
-entry_point: python src/app.py
+entry_point: python main.py
