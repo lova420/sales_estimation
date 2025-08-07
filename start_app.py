@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Startup script for the Vehicle Price Estimator application.
-This script can start both the FastAPI server and Streamlit app.
+This script starts both the FastAPI server and Streamlit app for Databricks Apps.
 """
 
 import subprocess
@@ -10,42 +10,46 @@ import time
 import os
 import signal
 import threading
+import uvicorn
+from multiprocessing import Process
+import asyncio
 
 def start_fastapi_server():
-    """Start the FastAPI server"""
+    """Start the FastAPI server in a separate process"""
     print("Starting FastAPI server...")
     try:
-        process = subprocess.Popen([sys.executable, "src/app.py"], 
-                                 stdout=subprocess.PIPE, 
-                                 stderr=subprocess.PIPE)
-        time.sleep(3)  # Wait for server to start
-        if process.poll() is None:
-            print("✅ FastAPI server started successfully on http://localhost:8000")
-            return process
-        else:
-            print("❌ Failed to start FastAPI server")
-            return None
+        # Import and run FastAPI directly to avoid subprocess issues
+        sys.path.append('src')
+        from app import app
+        
+        # Run FastAPI server on port 8000
+        uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
     except Exception as e:
         print(f"❌ Error starting FastAPI server: {e}")
-        return None
 
 def start_streamlit_app():
-    """Start the Streamlit app"""
+    """Start the Streamlit app in the main process"""
     print("Starting Streamlit app...")
     try:
-        process = subprocess.Popen([sys.executable, "-m", "streamlit", "run", "streamlit_app.py"], 
-                                 stdout=subprocess.PIPE, 
-                                 stderr=subprocess.PIPE)
-        time.sleep(5)  # Wait for Streamlit to start
-        if process.poll() is None:
-            print("✅ Streamlit app started successfully on http://localhost:8501")
-            return process
-        else:
-            print("❌ Failed to start Streamlit app")
-            return None
+        # Use subprocess but with proper configuration for Databricks
+        env = os.environ.copy()
+        env['STREAMLIT_SERVER_PORT'] = '8080'
+        env['STREAMLIT_SERVER_ADDRESS'] = '0.0.0.0'
+        env['STREAMLIT_SERVER_HEADLESS'] = 'true'
+        env['STREAMLIT_BROWSER_GATHER_USAGE_STATS'] = 'false'
+        
+        # Start Streamlit with proper configuration
+        cmd = [
+            sys.executable, "-m", "streamlit", "run", "streamlit_app.py",
+            "--server.port=8080",
+            "--server.address=0.0.0.0",
+            "--server.headless=true",
+            "--browser.gatherUsageStats=false"
+        ]
+        
+        subprocess.run(cmd, env=env)
     except Exception as e:
         print(f"❌ Error starting Streamlit app: {e}")
-        return None
 
 def main():
     print("🚗 Vehicle Price Estimator - Startup Script")
@@ -67,33 +71,31 @@ def main():
     
     print("✅ All required files found")
     
-    # Start FastAPI server
-    fastapi_process = start_fastapi_server()
-    if not fastapi_process:
-        print("Cannot continue without FastAPI server")
-        return
-    
-    # Start Streamlit app
-    streamlit_process = start_streamlit_app()
-    if not streamlit_process:
-        print("Cannot continue without Streamlit app")
-        fastapi_process.terminate()
-        return
-    
-    print("\n🎉 Both services started successfully!")
-    print("📱 Streamlit app: http://localhost:8501")
-    print("🔌 FastAPI server: http://localhost:8000")
-    print("\nPress Ctrl+C to stop both services...")
-    
     try:
-        # Keep the script running
-        while True:
-            time.sleep(1)
+        # Start FastAPI server in a separate process
+        print("🔄 Starting FastAPI server in background...")
+        fastapi_process = Process(target=start_fastapi_server)
+        fastapi_process.daemon = True
+        fastapi_process.start()
+        
+        # Give FastAPI time to start
+        time.sleep(3)
+        print("✅ FastAPI server started on port 8000")
+        
+        # Start Streamlit in the main process (this will be the main service for Databricks Apps)
+        print("🔄 Starting Streamlit app on main process...")
+        start_streamlit_app()
+        
     except KeyboardInterrupt:
         print("\n🛑 Stopping services...")
-        fastapi_process.terminate()
-        streamlit_process.terminate()
+        if 'fastapi_process' in locals():
+            fastapi_process.terminate()
+            fastapi_process.join()
         print("✅ Services stopped")
+    except Exception as e:
+        print(f"❌ Error in main: {e}")
+        if 'fastapi_process' in locals():
+            fastapi_process.terminate()
 
 if __name__ == "__main__":
     main() 

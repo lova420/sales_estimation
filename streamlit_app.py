@@ -15,6 +15,7 @@ st.set_page_config(
 
 # Global variables - Updated for Databricks deployment
 import os
+# For Databricks Apps, both services run in the same container
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 
 def load_preprocessor():
