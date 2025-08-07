@@ -10,6 +10,7 @@ import os
 import sys
 import joblib
 import glob
+import time
 
 # Add src to path for imports
 sys.path.append('src')
@@ -159,6 +160,7 @@ def vin_based_prediction():
     
     # Search button
     if st.button("Search Similar Vehicles", type="primary"):
+        time.sleep(3)
         if vin:
             with st.spinner("Searching for similar vehicles..."):
                 # Get VIN data directly
@@ -196,6 +198,8 @@ def vin_based_prediction():
         # Prediction button
         if st.button("Predict Price", type="secondary"):
             with st.spinner("Calculating price prediction..."):
+                # Add 3-second delay for demonstration
+                time.sleep(3)
                 # Calculate prediction directly
                 estimated_price = estimate_price_by_vin(df_similar)
                 
