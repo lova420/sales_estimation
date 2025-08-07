@@ -144,11 +144,15 @@ def vin_based_prediction():
     st.header("VIN-Based Price Prediction")
     st.markdown("Enter a VIN number to find similar vehicles and estimate the price.")
     
-    # Initialize session state
-    if 'similar_vehicles' not in st.session_state:
-        st.session_state.similar_vehicles = None
-    if 'vin_searched' not in st.session_state:
-        st.session_state.vin_searched = None
+    # Initialize session state safely
+    try:
+        if 'similar_vehicles' not in st.session_state:
+            st.session_state.similar_vehicles = None
+        if 'vin_searched' not in st.session_state:
+            st.session_state.vin_searched = None
+    except Exception:
+        # Fallback for when session state is not available
+        pass
     
     # VIN input
     vin = st.text_input("Enter VIN Number:", placeholder="e.g., 1HGBH41JXMN109186")
@@ -162,20 +166,31 @@ def vin_based_prediction():
                 
                 if not similar_df.empty:
                     similar_vehicles = similar_df.to_dict(orient="records")
-                    st.session_state.similar_vehicles = similar_vehicles
-                    st.session_state.vin_searched = vin
+                    try:
+                        st.session_state.similar_vehicles = similar_vehicles
+                        st.session_state.vin_searched = vin
+                    except Exception:
+                        pass  # Fallback for session state issues
                     st.success(f"Found {len(similar_vehicles)} similar vehicles!")
                 else:
-                    st.session_state.similar_vehicles = None
-                    st.session_state.vin_searched = None
+                    try:
+                        st.session_state.similar_vehicles = None
+                        st.session_state.vin_searched = None
+                    except Exception:
+                        pass  # Fallback for session state issues
                     st.warning("No similar vehicles found for this VIN.")
         else:
             st.warning("Please enter a VIN number.")
     
     # Display results if we have similar vehicles
-    if st.session_state.similar_vehicles:
+    try:
+        similar_vehicles = getattr(st.session_state, 'similar_vehicles', None)
+    except Exception:
+        similar_vehicles = None
+    
+    if similar_vehicles:
         st.subheader("Similar Vehicles Found:")
-        df_similar = pd.DataFrame(st.session_state.similar_vehicles)
+        df_similar = pd.DataFrame(similar_vehicles)
         st.dataframe(df_similar, use_container_width=True)
         
         # Prediction button

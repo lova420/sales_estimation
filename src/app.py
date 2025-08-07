@@ -1,20 +1,78 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
-import pandas as pd
-import numpy as np
-import uvicorn
+#!/usr/bin/env python3
+"""
+Main entry point for Databricks Apps deployment.
+This script launches Streamlit for the Vehicle Price Estimator.
+
+FastAPI code is commented out below for future reference.
+"""
+
 import os
-import glob
-from model_inference import predict_price
+import sys
+import subprocess
 
-app = FastAPI(title="VIN Price Estimator")
+# FastAPI imports (commented out for now)
+# from fastapi import FastAPI, HTTPException
+# from pydantic import BaseModel
+# import pandas as pd
+# import numpy as np
+# import uvicorn
+# import glob
+# from model_inference import predict_price
 
-class VINRequest(BaseModel):
-    df: list[dict]
+# app = FastAPI(title="VIN Price Estimator")
 
-class DataRequest(BaseModel):
-    features: dict
+# FastAPI models (commented out for now)
+# class VINRequest(BaseModel):
+#     df: list[dict]
+# 
+# class DataRequest(BaseModel):
+#     features: dict
 
+def main():
+    """Main entry point for Databricks Apps"""
+    
+    # Get configuration from environment
+    port = int(os.environ.get('PORT', '8080'))
+    host = os.environ.get('HOST', '0.0.0.0')
+    
+    print(f"🚗 Vehicle Price Estimator - Starting Streamlit")
+    print(f"   Host: {host}")
+    print(f"   Port: {port}")
+    print(f"   Working Directory: {os.getcwd()}")
+    
+    # Check if streamlit_main.py exists (should be in parent directory since we're in src/)
+    streamlit_file = os.path.join('..', 'streamlit_main.py')
+    if not os.path.exists(streamlit_file):
+        # Fallback: try current directory
+        streamlit_file = 'streamlit_main.py'
+        if not os.path.exists(streamlit_file):
+            # Try absolute path from working directory
+            streamlit_file = os.path.join(os.getcwd(), 'streamlit_main.py')
+            if not os.path.exists(streamlit_file):
+                print("❌ streamlit_main.py not found!")
+                print(f"   Searched in: {os.path.join('..', 'streamlit_main.py')}")
+                print(f"   Searched in: streamlit_main.py")
+                print(f"   Searched in: {streamlit_file}")
+                sys.exit(1)
+    
+    # Launch Streamlit with proper configuration
+    cmd = [
+        sys.executable, "-m", "streamlit", "run", streamlit_file,
+        f"--server.port={port}",
+        f"--server.address={host}",
+        "--server.headless=true",
+        "--browser.gatherUsageStats=false",
+        "--server.enableCORS=false",
+        "--server.enableXsrfProtection=false"
+    ]
+    
+    print(f"🚀 Launching: {' '.join(cmd)}")
+    
+    # Replace the current process with Streamlit
+    os.execv(sys.executable, cmd)
+
+# FastAPI functions (commented out for now)
+"""
 def get_vin_data(vin: str):
     vin_search = vin[:8]
 
@@ -86,9 +144,7 @@ def estimate_price(request: VINRequest):
 def predict_price_from_features(request: DataRequest):
     result = predict_price(request.features)
     return result
+"""
 
 if __name__ == "__main__":
-    # Get port from environment variable for Databricks Apps
-    port = int(os.getenv("PORT", 8000))
-    host = os.getenv("HOST", "0.0.0.0")
-    uvicorn.run(app, host=host, port=port)
+    main()

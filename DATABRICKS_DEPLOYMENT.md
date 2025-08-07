@@ -38,7 +38,7 @@ Make sure your repository contains all the required files:
    - **Name**: `vehicle-price-estimator`
    - **Description**: `Vehicle Price Estimation Application`
    - **Source Code**: Select your repository
-   - **Python file**: `streamlit_app.py`
+   - **Python file**: `src/app.py`
    - **Cluster**: Choose or create a cluster with Python 3.9+
 
 4. Set environment variables (if needed):
