@@ -15,6 +15,7 @@ import time
 # Add src to path for imports
 sys.path.append('src')
 from model_inference import predict_price
+from settings import settings_page
 
 # Page configuration
 st.set_page_config(
@@ -126,20 +127,22 @@ def estimate_price_by_vin(df_similar: pd.DataFrame):
     return float(df_cleaned['Sale Price'].median())
 
 def main():
-    st.title("🚗 Vehicle Price Estimator")
-    st.markdown("---")
-    
-    # Sidebar for navigation
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
         "Choose a page:",
-        ["VIN-Based Prediction", "Manual Input Prediction"]
+        ["VIN-Based Prediction", "Manual Input Prediction", "Settings"]
     )
-    
+
     if page == "VIN-Based Prediction":
+        st.title("🚗 Vehicle Price Estimator")
+        st.markdown("---")
         vin_based_prediction()
-    else:
+    elif page == "Manual Input Prediction":
+        st.title("🚗 Vehicle Price Estimator")
+        st.markdown("---")
         manual_input_prediction()
+    elif page == "Settings":
+        settings_page()
 
 def vin_based_prediction():
     st.header("VIN-Based Price Prediction")
