@@ -223,25 +223,30 @@ def vin_based_prediction():
                         active_rules = all_rules[all_rules['is_active']]
 
                         total_deduction_rate = 0.0
+                        applicable_rules = []
                         if not active_rules.empty:
-                            # Correctly reference the DataFrame of similar vehicles
                             vehicle_year = df_similar['Lot Year'].iloc[0]
                             vehicle_make = df_similar['Lot Make'].iloc[0]
                             vehicle_model = df_similar['Lot Model'].iloc[0]
 
                             for _, rule in active_rules.iterrows():
                                 applied = False
+                                rule_desc = ""
                                 if rule['rule_type'] == 'General' and rule['rule_condition'] == 'General':
                                     applied = True
+                                    rule_desc = f"General Deduction: {rule['deduction_rate']}%"
                                 elif rule['rule_type'] == 'Year':
                                     if str(int(vehicle_year)) == rule['rule_condition']:
                                         applied = True
-                                elif rule['rule_type'] == 'Making Model':
+                                        rule_desc = f"Year-Based ({rule['rule_condition']}): {rule['deduction_rate']}%"
+                                elif rule['rule_type'] == 'Make Model':
                                     if f"{vehicle_make}|{vehicle_model}" == rule['rule_condition']:
                                         applied = True
+                                        rule_desc = f"Make/Model-Based ({rule['rule_condition'].replace('|', ' ')}): {rule['deduction_rate']}%"
                                 
                                 if applied:
                                     total_deduction_rate += rule['deduction_rate']
+                                    applicable_rules.append(rule_desc)
 
                         final_price = estimated_price * (1 - total_deduction_rate / 100)
 
@@ -253,6 +258,12 @@ def vin_based_prediction():
                             delta_color="inverse" if total_deduction_rate > 0 else "off"
                         )
                         st.write(f"**Actual Estimated Price:** ${estimated_price:,.2f}")
+                        
+                        if applicable_rules:
+                            st.write("**Applied Deduction Rules:**")
+                            for desc in applicable_rules:
+                                st.write(f"- {desc}")
+
                         st.caption(f"Based on {len(df_similar)} similar vehicles")
                     with col2:
                         st.metric("Matches Used", len(df_similar))
@@ -329,27 +340,32 @@ def manual_input_prediction():
                         active_rules = all_rules[all_rules['is_active']]
 
                         total_deduction_rate = 0.0
+                        applicable_rules = []
                         estimated_price = prediction_result['predicted_sale_price']
 
                         if not active_rules.empty:
-                            # Data from manual input form
                             vehicle_year = input_data['Lot Year']
                             vehicle_make = input_data['Lot Make']
                             vehicle_model = input_data['Lot Model']
 
                             for _, rule in active_rules.iterrows():
                                 applied = False
+                                rule_desc = ""
                                 if rule['rule_type'] == 'General' and rule['rule_condition'] == 'General':
                                     applied = True
+                                    rule_desc = f"General Deduction: {rule['deduction_rate']}%"
                                 elif rule['rule_type'] == 'Year':
                                     if str(int(vehicle_year)) == rule['rule_condition']:
                                         applied = True
-                                elif rule['rule_type'] == 'Making Model':
+                                        rule_desc = f"Year-Based ({rule['rule_condition']}): {rule['deduction_rate']}%"
+                                elif rule['rule_type'] == 'Make Model':
                                     if f"{vehicle_make}|{vehicle_model}" == rule['rule_condition']:
                                         applied = True
+                                        rule_desc = f"Make/Model-Based ({rule['rule_condition'].replace('|', ' ')}): {rule['deduction_rate']}%"
                                 
                                 if applied:
                                     total_deduction_rate += rule['deduction_rate']
+                                    applicable_rules.append(rule_desc)
 
                         final_price = estimated_price * (1 - total_deduction_rate / 100)
 
@@ -361,6 +377,12 @@ def manual_input_prediction():
                             delta_color="inverse" if total_deduction_rate > 0 else "off"
                         )
                         st.write(f"**Actual Estimated Price:** ${estimated_price:,.2f}")
+
+                        if applicable_rules:
+                            st.write("**Applied Deduction Rules:**")
+                            for desc in applicable_rules:
+                                st.write(f"- {desc}")
+
                     with col2:
                         st.metric(
                             "Confidence Level", 

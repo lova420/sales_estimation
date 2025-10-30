@@ -76,7 +76,7 @@ def settings_page():
     # --- Add New Rule Form ---
     st.subheader("Add New Deduction Rule")
 
-    rule_type = st.selectbox("Rule Type", ["General", "Year", "Making Model"])
+    rule_type = st.selectbox("Rule Type", ["General", "Year", "Make Model"])
 
     deduction_value = None
     condition = None
@@ -98,7 +98,7 @@ def settings_page():
             return
 
 
-    elif rule_type == "Making Model":
+    elif rule_type == "Make Model":
         try:
             data_path = os.path.join(os.getcwd(), 'data.csv')
             df = pd.read_csv(data_path)
@@ -129,8 +129,8 @@ def settings_page():
                     st.toast(f"Deduction rule for year {condition} already exists.", icon="⚠️")
                     duplicate_found = True
 
-            elif rule_type == "Making Model":
-                if condition in rules_df[rules_df['rule_type'] == 'Making Model']['rule_condition'].values:
+            elif rule_type == "Make Model":
+                if condition in rules_df[rules_df['rule_type'] == 'Make Model']['rule_condition'].values:
                     st.toast(f"Deduction rule for {condition.replace('|', ' ')} already exists.", icon="⚠️")
                     duplicate_found = True
 

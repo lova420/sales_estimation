@@ -19,5 +19,12 @@
         "rule_condition": "2025",
         "deduction_rate": 5.0,
         "is_active": true
+    },
+    {
+        "id": 4,
+        "rule_type": "Make Model",
+        "rule_condition": "ACUR |3.0CL     ",
+        "deduction_rate": 5.0,
+        "is_active": true
     }
 ]
