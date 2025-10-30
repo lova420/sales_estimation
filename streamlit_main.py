@@ -15,7 +15,7 @@ import time
 # Add src to path for imports
 sys.path.append('src')
 from model_inference import predict_price
-from settings import settings_page
+from settings import settings_page, get_all_rules, initialize_rules
 
 # Page configuration
 st.set_page_config(
@@ -211,11 +211,43 @@ def vin_based_prediction():
                     
                     col1, col2 = st.columns(2)
                     with col1:
+                        # --- Deduction Rules Application ---
+                        initialize_rules()
+                        all_rules = get_all_rules()
+                        active_rules = all_rules[all_rules['is_active']]
+
+                        total_deduction_rate = 0.0
+                        if not active_rules.empty:
+                            # Correctly reference the DataFrame of similar vehicles
+                            vehicle_year = df_similar['Lot Year'].iloc[0]
+                            vehicle_make = df_similar['Lot Make'].iloc[0]
+                            vehicle_model = df_similar['Lot Model'].iloc[0]
+
+                            for _, rule in active_rules.iterrows():
+                                applied = False
+                                if rule['rule_type'] == 'General' and rule['rule_condition'] == 'General':
+                                    applied = True
+                                elif rule['rule_type'] == 'Year':
+                                    if str(int(vehicle_year)) == rule['rule_condition']:
+                                        applied = True
+                                elif rule['rule_type'] == 'Making Model':
+                                    if f"{vehicle_make}|{vehicle_model}" == rule['rule_condition']:
+                                        applied = True
+                                
+                                if applied:
+                                    total_deduction_rate += rule['deduction_rate']
+
+                        final_price = estimated_price * (1 - total_deduction_rate / 100)
+
+                        st.write("##### After Deduction Rate:")
                         st.metric(
-                            "Estimated Price", 
-                            f"${estimated_price:,.2f}",
-                            delta=f"Based on {len(df_similar)} similar vehicles"
+                            "Final Price",
+                            f"${final_price:,.2f}",
+                            delta=f"-{total_deduction_rate:.2f}%" if total_deduction_rate > 0 else "No deductions applied",
+                            delta_color="inverse" if total_deduction_rate > 0 else "off"
                         )
+                        st.write(f"**Actual Estimated Price:** ${estimated_price:,.2f}")
+                        st.caption(f"Based on {len(df_similar)} similar vehicles")
                     with col2:
                         st.metric("Matches Used", len(df_similar))
                     
