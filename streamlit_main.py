@@ -317,10 +317,44 @@ def manual_input_prediction():
                     
                     col1, col2, col3 = st.columns(3)
                     with col1:
+                        # --- Deduction Rules Application ---
+                        initialize_rules()
+                        all_rules = get_all_rules()
+                        active_rules = all_rules[all_rules['is_active']]
+
+                        total_deduction_rate = 0.0
+                        estimated_price = prediction_result['predicted_sale_price']
+
+                        if not active_rules.empty:
+                            # Data from manual input form
+                            vehicle_year = input_data['Lot Year']
+                            vehicle_make = input_data['Lot Make']
+                            vehicle_model = input_data['Lot Model']
+
+                            for _, rule in active_rules.iterrows():
+                                applied = False
+                                if rule['rule_type'] == 'General' and rule['rule_condition'] == 'General':
+                                    applied = True
+                                elif rule['rule_type'] == 'Year':
+                                    if str(int(vehicle_year)) == rule['rule_condition']:
+                                        applied = True
+                                elif rule['rule_type'] == 'Making Model':
+                                    if f"{vehicle_make}|{vehicle_model}" == rule['rule_condition']:
+                                        applied = True
+                                
+                                if applied:
+                                    total_deduction_rate += rule['deduction_rate']
+
+                        final_price = estimated_price * (1 - total_deduction_rate / 100)
+
+                        st.write("##### After Deduction Rate:")
                         st.metric(
-                            "Predicted Sale Price", 
-                            f"${prediction_result['predicted_sale_price']:,.2f}"
+                            "Final Price",
+                            f"${final_price:,.2f}",
+                            delta=f"-{total_deduction_rate:.2f}%" if total_deduction_rate > 0 else "No deductions applied",
+                            delta_color="inverse" if total_deduction_rate > 0 else "off"
                         )
+                        st.write(f"**Actual Estimated Price:** ${estimated_price:,.2f}")
                     with col2:
                         st.metric(
                             "Confidence Level", 
