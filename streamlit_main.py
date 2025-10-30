@@ -196,7 +196,13 @@ def vin_based_prediction():
     if similar_vehicles:
         st.subheader("Similar Vehicles Found:")
         df_similar = pd.DataFrame(similar_vehicles)
-        st.dataframe(df_similar, use_container_width=True)
+        st.dataframe(
+            df_similar,
+            column_config={
+                "Lot Year": st.column_config.NumberColumn(format="%d")
+            },
+            use_container_width=True
+        )
         
         # Prediction button
         if st.button("Predict Price", type="secondary"):
