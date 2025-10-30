@@ -1,0 +1,16 @@
+[
+    {
+        "id": 1,
+        "rule_type": "General",
+        "rule_condition": "General",
+        "deduction_rate": 10.0,
+        "is_active": true
+    },
+    {
+        "id": 2,
+        "rule_type": "Year",
+        "rule_condition": "2020",
+        "deduction_rate": 5.0,
+        "is_active": true
+    }
+]
